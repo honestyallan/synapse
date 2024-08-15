@@ -733,6 +733,7 @@ class RoomSummaryHandler:
             ),
             "guest_can_join": stats.guest_access == "can_join",
             "room_type": stats.room_type,
+            "config": stats.config,
         }
 
         if self._msc3266_enabled:
@@ -883,6 +884,16 @@ class RoomSummaryHandler:
             return room
 
         return room_summary
+
+    async def add_space_app(
+        self,
+        requester: Requester,
+        config: JsonDict,
+    ) -> None:
+        config_param = config.get("config")
+        room_id = config.get("room_id")
+        operation = config.get("operation")
+        await self._store.room_set_space_config(config_param, room_id, operation)
 
 
 @attr.s(frozen=True, slots=True, auto_attribs=True)

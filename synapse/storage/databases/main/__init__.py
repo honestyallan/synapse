@@ -37,7 +37,6 @@ from synapse.storage.databases.main.stats import UserSortOrder
 from synapse.storage.engines import BaseDatabaseEngine
 from synapse.storage.types import Cursor
 from synapse.types import get_domain_from_id
-
 from .account_data import AccountDataStore
 from .appservice import ApplicationServiceStore, ApplicationServiceTransactionStore
 from .cache import CacheInvalidationWorkerStore
@@ -69,7 +68,7 @@ from .receipts import ReceiptsStore
 from .registration import RegistrationStore
 from .rejections import RejectionsStore
 from .relations import RelationsStore
-from .room import RoomStore
+from .room import RoomStore, RoomUpdatesStore
 from .roommember import RoomMemberStore
 from .search import SearchStore
 from .session import SessionStore
@@ -115,6 +114,7 @@ class DataStore(
     DeviceStore,
     RoomMemberStore,
     RoomStore,
+    RoomUpdatesStore,
     RegistrationStore,
     ProfileStore,
     PresenceStore,

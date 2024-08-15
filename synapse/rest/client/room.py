@@ -28,7 +28,6 @@ from typing import TYPE_CHECKING, Awaitable, Dict, List, Optional, Tuple
 from urllib import parse as urlparse
 
 from prometheus_client.core import Histogram
-
 from twisted.web.server import Request
 
 from synapse import event_auth
@@ -1468,6 +1467,30 @@ class RoomHierarchyRestServlet(RestServlet):
         )
 
 
+class AddSpaceAppRestServlet(RestServlet):
+    PATTERNS = client_patterns("/add_space_app$", v1=True)
+    WORKERS = PATTERNS
+    CATEGORY = "Client API requests"
+
+    def __init__(self, hs: "HomeServer"):
+        super().__init__()
+        self._auth = hs.get_auth()
+        self._room_summary_handler = hs.get_room_summary_handler()
+
+    async def on_POST(
+        self, request: SynapseRequest
+    ) -> Tuple[int, JsonDict]:
+        requester = await self._auth.get_user_by_req(request, allow_guest=True)
+        await self._room_summary_handler.add_space_app(requester,
+                                                       self.get_room_config(
+                                                           request))
+        return 200, {}
+
+    def get_room_config(self, request: Request) -> JsonDict:
+        user_supplied_config = parse_json_object_from_request(request)
+        return user_supplied_config
+
+
 class RoomSummaryRestServlet(ResolveRoomIdMixin, RestServlet):
     PATTERNS = (
         # deprecated endpoint, to be removed
@@ -1527,6 +1550,7 @@ def register_servlets(hs: "HomeServer", http_server: HttpServer) -> None:
     RoomTypingRestServlet(hs).register(http_server)
     RoomEventContextServlet(hs).register(http_server)
     RoomHierarchyRestServlet(hs).register(http_server)
+    AddSpaceAppRestServlet(hs).register(http_server)
     if hs.config.experimental.msc3266_enabled:
         RoomSummaryRestServlet(hs).register(http_server)
     RoomEventServlet(hs).register(http_server)

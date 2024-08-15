@@ -19,7 +19,7 @@
 # [This file includes modifications made by New Vector Limited]
 #
 #
-
+import json
 import logging
 from enum import Enum
 from typing import (
@@ -90,6 +90,7 @@ class LargestRoomStats:
     avatar: Optional[str]
     topic: Optional[str]
     room_type: Optional[str]
+    config: Optional[JsonDict]
 
 
 @attr.s(slots=True, frozen=True, auto_attribs=True)
@@ -246,7 +247,7 @@ class RoomWorkerStore(CacheInvalidationWorkerStore):
                   rooms.creator, state.encryption, state.is_federatable AS federatable,
                   rooms.is_public AS public, state.join_rules, state.guest_access,
                   state.history_visibility, curr.current_state_events AS state_events,
-                  state.avatar, state.topic, state.room_type
+                  state.avatar, state.topic, state.room_type, state.config
                 FROM rooms
                 LEFT JOIN room_stats_state state USING (room_id)
                 LEFT JOIN room_stats_current curr USING (room_id)
@@ -274,6 +275,7 @@ class RoomWorkerStore(CacheInvalidationWorkerStore):
                 avatar=row[14],
                 topic=row[15],
                 room_type=row[16],
+                config=row[17],
             )
 
         return await self.db_pool.runInteraction(
@@ -2594,3 +2596,53 @@ class RoomStore(RoomBackgroundUpdateStore, RoomWorkerStore):
                 WHERE stream_id <= ?
             """
             txn.execute(sql, (device_lists_stream_id,))
+
+
+class RoomUpdatesStore(RoomWorkerStore):
+    def __init__(
+        self,
+        database: DatabasePool,
+        db_conn: LoggingDatabaseConnection,
+        hs: "HomeServer",
+    ):
+        super().__init__(database, db_conn, hs)
+
+    async def room_set_space_config(
+        self, config: str, room_id: str, operation: str
+    ) -> None:
+        def room_set_config(txn: LoggingTransaction) -> None:
+            row = self.db_pool.simple_select_one_txn(
+                txn,
+                table="room_stats_state",
+                keyvalues={"room_id": room_id},
+                retcols=["config"],
+                allow_none=True,
+            )
+
+            if not row:
+                return
+            json_str = row[0]
+
+            if "miniapps" not in json_str:
+                json_obj = {"miniapps": []}
+            else:
+                json_obj = json.loads(json_str)
+
+            if operation == "cancel":
+                json_obj["miniapps"].remove(config)
+            elif operation == "add":
+                json_obj["miniapps"].append(config)
+
+            # Remove duplicates
+            json_obj["miniapps"] = list(set(json_obj["miniapps"]))
+
+            self.db_pool.simple_update_one_txn(
+                txn,
+                table="room_stats_state",
+                keyvalues={"room_id": room_id},
+                updatevalues={
+                    "config": json.dumps(json_obj),
+                },
+            )
+
+        await self.db_pool.runInteraction("room_set_config", room_set_config)
