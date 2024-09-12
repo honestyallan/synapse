@@ -90,6 +90,7 @@ class LargestRoomStats:
     avatar: Optional[str]
     topic: Optional[str]
     room_type: Optional[str]
+    config: Optional[JsonDict]
 
 
 @attr.s(slots=True, frozen=True, auto_attribs=True)
@@ -246,7 +247,7 @@ class RoomWorkerStore(CacheInvalidationWorkerStore):
                   rooms.creator, state.encryption, state.is_federatable AS federatable,
                   rooms.is_public AS public, state.join_rules, state.guest_access,
                   state.history_visibility, curr.current_state_events AS state_events,
-                  state.avatar, state.topic, state.room_type
+                  state.avatar, state.topic, state.room_type, state.config
                 FROM rooms
                 LEFT JOIN room_stats_state state USING (room_id)
                 LEFT JOIN room_stats_current curr USING (room_id)
@@ -274,6 +275,7 @@ class RoomWorkerStore(CacheInvalidationWorkerStore):
                 avatar=row[14],
                 topic=row[15],
                 room_type=row[16],
+                config=row[17],
             )
 
         return await self.db_pool.runInteraction(
@@ -513,7 +515,7 @@ class RoomWorkerStore(CacheInvalidationWorkerStore):
         sql = f"""
             SELECT
                 room_id, name, topic, canonical_alias, joined_members,
-                avatar, history_visibility, guest_access, join_rules, room_type
+                avatar, history_visibility, guest_access, join_rules, room_type, config
             FROM (
                 {published_sql}
             ) published
@@ -558,6 +560,7 @@ class RoomWorkerStore(CacheInvalidationWorkerStore):
                     avatar=r[5],
                     topic=r[2],
                     room_type=r[9],
+                    config=r[10]
                 )
                 for r in txn
             ]

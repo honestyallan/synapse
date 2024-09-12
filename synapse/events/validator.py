@@ -216,6 +216,9 @@ class EventValidator:
         elif event.type == EventTypes.Name:
             self._ensure_strings(event.content, ["name"])
             self._ensure_state_event(event)
+        elif event.type == EventTypes.Config:
+            self._ensure_strings(event.content, ["config"])
+            self._ensure_state_event(event)
         elif event.type == EventTypes.Member:
             if "membership" not in event.content:
                 raise SynapseError(400, "Content has not membership key")

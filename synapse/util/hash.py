@@ -20,6 +20,7 @@
 #
 
 import hashlib
+import struct
 
 import unpaddedbase64
 
@@ -36,3 +37,9 @@ def sha256_and_url_safe_base64(input_text: str) -> str:
     """
     digest = hashlib.sha256(input_text.encode()).digest()
     return unpaddedbase64.encode_base64(digest, urlsafe=True)
+
+def sha256_hash(input_text: str) -> str:
+    data_sha = hashlib.sha256(input_text.encode('utf-8')).hexdigest()
+    hash_bytes = bytes.fromhex(data_sha)[:8]
+    hash_int = struct.unpack('<q', hash_bytes)[0]
+    return str(hash_int)

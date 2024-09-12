@@ -32,6 +32,7 @@ from synapse.api.constants import (
     EventTypes,
     GuestAccess,
     Membership,
+    MiniApp,
 )
 from synapse.api.errors import (
     AuthError,
@@ -66,6 +67,7 @@ from synapse.types import (
 from synapse.types.state import StateFilter
 from synapse.util.async_helpers import Linearizer
 from synapse.util.distributor import user_left_room
+from synapse.util.hash import sha256_hash
 
 if TYPE_CHECKING:
     from synapse.server import HomeServer
@@ -445,6 +447,11 @@ class RoomMemberHandler(metaclass=abc.ABCMeta):
             content = {}
 
         content["membership"] = membership
+        if target.to_string() == requester.user.to_string():
+            if "access_hash" not in content:
+                content["access_hash"] = sha256_hash(
+                    "%s%s%s" % (target.localpart.lower(), room_id.lower(),
+                                MiniApp.ACCESS_HASH_SALT))
         if requester.is_guest:
             content["kind"] = "guest"
 
@@ -1088,6 +1095,12 @@ class RoomMemberHandler(metaclass=abc.ABCMeta):
                 remote_join_response = await self._remote_join(
                     requester, remote_room_hosts, room_id, target, content
                 )
+
+                if target.to_string() == requester.user.to_string():
+                    if "access_hash" not in content:
+                        content["access_hash"] = sha256_hash(
+                            "%s%s%s" % (target.localpart.lower(), room_id.lower(),
+                                        MiniApp.ACCESS_HASH_SALT))
 
                 return remote_join_response
 

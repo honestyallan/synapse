@@ -283,6 +283,7 @@ class StatsStore(StateDeltasStore):
             "canonical_alias",
             "guest_access",
             "room_type",
+            "config"
         ):
             field = fields.get(col, sentinel)
             if field is not sentinel and (not isinstance(field, str) or "\0" in field):
@@ -597,6 +598,7 @@ class StatsStore(StateDeltasStore):
             "canonical_alias": None,
             "is_federatable": True,
             "room_type": None,
+            "config": None,
         }
 
         for event in state_event_map.values():
@@ -616,6 +618,8 @@ class StatsStore(StateDeltasStore):
                 room_state["avatar"] = event.content.get("url")
             elif event.type == EventTypes.CanonicalAlias:
                 room_state["canonical_alias"] = event.content.get("alias")
+            elif event.type == EventTypes.Config:
+                room_state["config"] = event.content.get("config")
             elif event.type == EventTypes.Create:
                 room_state["is_federatable"] = (
                     event.content.get(EventContentFields.FEDERATE, True) is True

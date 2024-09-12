@@ -360,6 +360,9 @@ class MediaRepository:
         except Exception as e:
             logger.info("Failed to generate thumbnails: %s", e)
 
+        media_local_dir = self.filepaths.base_path
+        shutil.rmtree(media_local_dir, ignore_errors=True)
+
         return MXCUri(self.server_name, media_id)
 
     def respond_not_yet_uploaded(self, request: SynapseRequest) -> None:

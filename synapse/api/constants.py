@@ -116,6 +116,7 @@ class EventTypes:
     Message: Final = "m.room.message"
     Topic: Final = "m.room.topic"
     Name: Final = "m.room.name"
+    Config: Final = "m.room.config"
 
     ServerACL: Final = "m.room.server_acl"
     Pinned: Final = "m.room.pinned_events"
@@ -318,3 +319,6 @@ class ApprovalNoticeMedium:
 class Direction(enum.Enum):
     BACKWARDS = "b"
     FORWARDS = "f"
+
+class MiniApp:
+    ACCESS_HASH_SALT = "4aed479d7c5ffebb79b934fac0bf5893"

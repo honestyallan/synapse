@@ -25,8 +25,8 @@ import re
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Union, cast
 
 import attr
-
-from synapse.api.constants import UserTypes
+from synapse.util.hash import sha256_and_url_safe_base64
+from synapse.api.constants import UserTypes, MiniApp
 from synapse.api.errors import (
     Codes,
     NotFoundError,
@@ -675,6 +675,20 @@ class RegistrationWorkerStore(CacheInvalidationWorkerStore):
             "is_support_user", self.is_support_user_txn, user_id
         )
 
+    @cached()
+    async def is_bot_user(self, user_id: str) -> bool:
+        """Determines if the user is of type UserTypes.BOT
+
+        Args:
+            user_id: user id to test
+
+        Returns:
+            True if user is of type UserTypes.BOT
+        """
+        return await self.db_pool.runInteraction(
+            "is_bot_user", self.is_bot_user_txn, user_id
+        )
+
     def is_real_user_txn(self, txn: LoggingTransaction, user_id: str) -> bool:
         res = self.db_pool.simple_select_one_onecol_txn(
             txn=txn,
@@ -694,6 +708,16 @@ class RegistrationWorkerStore(CacheInvalidationWorkerStore):
             allow_none=True,
         )
         return True if res == UserTypes.SUPPORT else False
+
+    def is_bot_user_txn(self, txn: LoggingTransaction, user_id: str) -> bool:
+        res = self.db_pool.simple_select_one_onecol_txn(
+            txn=txn,
+            table="users",
+            keyvalues={"name": user_id},
+            retcol="user_type",
+            allow_none=True,
+        )
+        return True if res == UserTypes.BOT else False
 
     async def get_users_by_id_case_insensitive(self, user_id: str) -> Dict[str, str]:
         """Gets users that match user_id case insensitively.
@@ -2551,7 +2575,8 @@ class RegistrationStore(StatsStore, RegistrationBackgroundUpdateStore):
         approved: bool,
     ) -> None:
         user_id_obj = UserID.from_string(user_id)
-
+        to_hash = "%s%s" % (user_id, MiniApp.ACCESS_HASH_SALT)
+        g_user_id = sha256_and_url_safe_base64(to_hash)
         now = int(self._clock.time())
 
         user_approved = approved or not self._require_approval
@@ -2598,6 +2623,7 @@ class RegistrationStore(StatsStore, RegistrationBackgroundUpdateStore):
                         "user_type": user_type,
                         "shadow_banned": shadow_banned,
                         "approved": user_approved,
+                        "guid": g_user_id,
                     },
                 )
 

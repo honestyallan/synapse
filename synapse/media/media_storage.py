@@ -19,6 +19,7 @@
 #
 #
 import contextlib
+import io
 import json
 import logging
 import os
@@ -44,6 +45,7 @@ from typing import (
 from uuid import uuid4
 
 import attr
+import requests
 from zope.interface import implementer
 
 from twisted.internet import interfaces
@@ -56,7 +58,8 @@ from synapse.logging.opentracing import start_active_span, trace, trace_with_opn
 from synapse.media._base import ThreadedFileSender
 from synapse.util import Clock
 from synapse.util.file_consumer import BackgroundFileConsumer
-
+import boto3
+from botocore.exceptions import ClientError
 from ..types import JsonDict
 from ._base import FileInfo, Responder
 from .filepath import MediaFilePaths
@@ -88,12 +91,21 @@ class MediaStorage:
         storage_providers: Sequence["StorageProvider"],
     ):
         self.hs = hs
+        self.aws_access_key_id = hs.config.media_s3.aws_access_key_id
+        self.aws_secret_access_key = hs.config.media_s3.aws_secret_access_key
+        self.region_name = hs.config.media_s3.region_name
+        self.bucket_name = hs.config.media_s3.bucket_name
         self.reactor = hs.get_reactor()
         self.local_media_directory = local_media_directory
         self.filepaths = filepaths
         self.storage_providers = storage_providers
         self._spam_checker_module_callbacks = hs.get_module_api_callbacks().spam_checker
         self.clock = hs.get_clock()
+        # create s3 client
+        self.s3 = boto3.client('s3',
+                               aws_access_key_id=self.aws_access_key_id,
+                               aws_secret_access_key=self.aws_secret_access_key,
+                               region_name=self.region_name)
 
     @trace_with_opname("MediaStorage.store_file")
     async def store_file(self, source: IO, file_info: FileInfo) -> str:
@@ -118,6 +130,12 @@ class MediaStorage:
     async def write_to_file(self, source: IO, output: IO) -> None:
         """Asynchronously write the `source` to `output`."""
         await defer_to_thread(self.reactor, _write_file_synchronously, source, output)
+        obj_name = max(output.name.split(self.local_media_directory+"/"))
+        # upload to S3
+        try:
+            self.s3.upload_file(output.name, self.bucket_name, obj_name)
+        except ClientError as e:
+            logger.error("Failed to upload file to S3: %s", e)
 
     @trace_with_opname("MediaStorage.store_into_file")
     @contextlib.asynccontextmanager
@@ -206,11 +224,29 @@ class MediaStorage:
             )
 
         for path in paths:
-            local_path = os.path.join(self.local_media_directory, path)
-            if os.path.exists(local_path):
-                logger.debug("responding with local file %s", local_path)
-                return FileResponder(self.hs, open(local_path, "rb"))
-            logger.debug("local file %s did not exist", local_path)
+            url = self.s3.generate_presigned_url(
+                'get_object',
+                Params={'Bucket': self.bucket_name, 'Key': path},
+                ExpiresIn=3600
+            )
+            if url:
+                logger.debug("Responding with S3 file %s", path)
+                try:
+                    with requests.get(url, stream=True) as response:
+                        response.raise_for_status()
+                        # For large files, consider streaming the content instead of loading into memory
+                        file_stream = io.BytesIO(response.content)
+                        return FileResponder(self.hs, file_stream)
+                except requests.exceptions.RequestException as e:
+                    logger.error("Failed to read file from URL: %s", e)
+                    continue  # Move to the next path or provider
+
+            logger.debug("S3 file %s did not exist", path)
+            # local_path = os.path.join(self.local_media_directory, path)
+            # if os.path.exists(local_path):
+            #     logger.debug("responding with local file %s", local_path)
+            #     return FileResponder(self.hs, open(local_path, "rb"))
+            # logger.debug("local file %s did not exist", local_path)
 
         for provider in self.storage_providers:
             for path in paths:
@@ -322,6 +358,7 @@ def _write_file_synchronously(source: IO, dest: IO) -> None:
     """
     source.seek(0)  # Ensure we read from the start of the file
     shutil.copyfileobj(source, dest)
+    dest.flush()
 
 
 class FileResponder(Responder):

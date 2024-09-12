@@ -210,6 +210,7 @@ class RoomListHandler:
                 "guest_can_join": room.guest_access == "can_join",
                 "join_rule": room.join_rules,
                 "room_type": room.room_type,
+                "config": room.config
             }
 
             # Filter out Nones – rather omit the field altogether

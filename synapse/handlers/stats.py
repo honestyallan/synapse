@@ -300,6 +300,8 @@ class StatsHandler:
                 room_state["name"] = event_content.get("name")
             elif delta.event_type == EventTypes.Topic:
                 room_state["topic"] = event_content.get("topic")
+            elif delta.event_type == EventTypes.Config:
+                room_state["config"] = event_content.get("config")
             elif delta.event_type == EventTypes.RoomAvatar:
                 room_state["avatar"] = event_content.get("url")
             elif delta.event_type == EventTypes.CanonicalAlias:

@@ -754,6 +754,7 @@ class RoomSummaryHandler:
             ),
             "guest_can_join": stats.guest_access == "can_join",
             "room_type": stats.room_type,
+            "config": stats.config,
         }
 
         if self._msc3266_enabled:

@@ -95,6 +95,7 @@ _DEFAULT_PREJOIN_STATE_TYPES_AND_STATE_KEYS = [
     (EventTypes.Create, ""),
     # Per MSC3173.
     (EventTypes.Topic, ""),
+    (EventTypes.Config, ""),
 ]
 
 

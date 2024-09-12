@@ -34,6 +34,7 @@ from .emailconfig import EmailConfig
 from .experimental import ExperimentalConfig
 from .federation import FederationConfig
 from .jwt import JWTConfig
+from .custom_jwt import CUSTOMJWTConfig
 from .key import KeyConfig
 from .logger import LoggingConfig
 from .metrics import MetricsConfig
@@ -61,6 +62,7 @@ from .tracer import TracerConfig
 from .user_directory import UserDirectoryConfig
 from .voip import VoipConfig
 from .workers import WorkerConfig
+from .media_s3 import MediaS3Config
 
 
 class HomeServerConfig(RootConfig):
@@ -89,6 +91,7 @@ class HomeServerConfig(RootConfig):
         CasConfig,
         SSOConfig,
         JWTConfig,
+        CUSTOMJWTConfig,
         AuthConfig,
         EmailConfig,
         PasswordAuthProviderConfig,
@@ -107,4 +110,5 @@ class HomeServerConfig(RootConfig):
         ExperimentalConfig,
         BackgroundUpdateConfig,
         AutoAcceptInvitesConfig,
+        MediaS3Config,
     ]
